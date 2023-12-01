@@ -9,7 +9,7 @@ KONG_DB_PASS:=kong
 KONG_DB_NAME:=kong
 KONG_DATABASE?=postgres
 
-POSTGRES_IMAGE:=docker.io/postgres:11.2-alpine
+POSTGRES_IMAGE?=docker.io/postgres:11.2-alpine
 
 wait-for-log:
 	@while ! docker logs ${CONTAINER} | grep -q "${PATTERN}"; do sleep 5; done
@@ -30,7 +30,7 @@ kong-db-create-postgres:
 
 kong-db-migrate: build
 	@echo "Migrating Kong DB"
-	@docker run -it --rm \
+	@docker run --rm \
 		--name ${KONG_CONTAINER_NAME} \
 		--net=host \
 		-e "KONG_DATABASE=${KONG_DATABASE}" \

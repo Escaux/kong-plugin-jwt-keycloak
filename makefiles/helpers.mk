@@ -1,8 +1,8 @@
-HTTPBIN_IMAGE:=docker.io/kennethreitz/httpbin
+HTTPBIN_IMAGE?=docker.io/kennethreitz/httpbin
 HTTPBIN_CONTAINER_NAME:=kong_test_httpbin
 HTTPBIN_PORT:=8093
 
-PGADMIN_IMAGE:=docker.io/dpage/pgadmin4:7.5
+PGADMIN_IMAGE?=docker.io/dpage/pgadmin4:7.5
 PGADMIN_CONTAINER_NAME:=kong_test_pgadmin6
 PGADMIN_PORT:=5050
 PGADMIN_DEFAULT_EMAIL=pgadmin@subdomain.domain
@@ -20,7 +20,7 @@ helpers-start:
 	-e "PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}" \
 	-e "PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}" \
 	-e "PGADMIN_CONFIG_DEBUG=True" \
-	-e "PGADMIN_LISTEN_PORT=${PGADMIN_DEFAULT_PASSWORD}" \
+	-e "PGADMIN_LISTEN_PORT=${PGADMIN_PORT}" \
 	${PGADMIN_IMAGE}
 
 helpers-stop:
