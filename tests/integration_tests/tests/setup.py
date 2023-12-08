@@ -21,6 +21,16 @@ def keyclock_adjust_accessTokenLifespan(seconds):
                  json={'accessTokenLifespan': str(seconds)})
     assert r.status_code == 204
 
+def get_kc_admin_token():
+    r = requests.post(KC_REALM + "/protocol/openid-connect/token", data={
+        'grant_type': 'password',
+        'client_id': 'admin-cli',
+        'username': KC_USER,
+        'password': KC_PASS
+    })
+    assert r.status_code == 200
+    return r.json()['access_token']
+
 ############################################################################
 # Now initialize the required testdata
 #
@@ -29,15 +39,14 @@ def keyclock_adjust_accessTokenLifespan(seconds):
 # when it is used in test-cases
 if not setup_done:
     # Request directly token with these settings
-    r = requests.post(KC_REALM + "/protocol/openid-connect/token", data={
-        'grant_type': 'password',
-        'client_id': 'admin-cli',
-        'username': KC_USER,
-        'password': KC_PASS
-    })
-    assert r.status_code == 200
     if KC_ADMIN_TOKEN is None:
-        KC_ADMIN_TOKEN = r.json()['access_token']
+        # Get the token so we can change the lifespan
+        KC_ADMIN_TOKEN = get_kc_admin_token()
+        # ... Then change the lifespan to 1h because the default is 60 seconds and on slow machines
+        # the tests fail because of this!!
+        # You don't have any idea how CRAZY I became trying to debug semi-random 401 errors.
+        keyclock_adjust_accessTokenLifespan(3600)
+        KC_ADMIN_TOKEN = get_kc_admin_token()
     else:
         print("-------------- already existing KC_ADMIN_TOKEN -------------------")
 
