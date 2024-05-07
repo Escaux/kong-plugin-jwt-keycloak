@@ -8,21 +8,30 @@ local function get_request(url)
     -- https://github.com/Kong/kong/issues/3271
     local httpc = http.new()
 
+    kong.log.debug('Making outgoing request to ' .. url)
     local res, err = httpc:request_uri(url, {
         method = "GET",
     })
 
     if err then
-        return nil, 'Error while calling url ' .. url .. ': ' .. err
+        local err_msg = 'Error while calling url ' .. url .. ': ' .. err
+        kong.log.info(err_msg)
+        return nil, err_msg
     end
 
     if res.status ~= 200 then
-        return nil, 'Failed calling url ' .. url .. ' response status ' .. res.status
+        local err_msg = 'Failed calling url ' .. url .. ' response status ' .. res.status
+        kong.log.warn(err_msg)
+        return nil, err_msg
     end
+
+    kong.log.debug('Successful outgoing request to ' .. url .. ' with status ' .. res.status)
 
     res, err = cjson_safe.decode(res.body)
     if not res then
-        return nil, 'Failed to parse json response'
+        local err_msg = 'Failed to parse json response'
+        kong.log.err(err_msg)
+        return nil, err_msg
     end
 
     return res, nil
