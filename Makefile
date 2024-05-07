@@ -4,7 +4,7 @@ include makefiles/*.mk
 
 REPOSITORY?=telekom-digioss
 IMAGE?=kong-plugin-jwt-keycloak
-KONG_VERSION?=3.5.0
+KONG_VERSION?=3.6.1
 FULL_IMAGE_NAME:=${REPOSITORY}/${IMAGE}:${KONG_VERSION}
 
 PLUGIN_VERSION?=1.4.1-1
