@@ -1,4 +1,3 @@
-local url = require "socket.url"
 local http = require("resty.http")
 local cjson_safe = require "cjson.safe"
 local convert = require "kong.plugins.jwt-keycloak.key_conversion"
@@ -27,7 +26,7 @@ local function get_request(url)
 
     kong.log.debug('Successful outgoing request to ' .. url .. ' with status ' .. res.status)
 
-    res, err = cjson_safe.decode(res.body)
+    res = cjson_safe.decode(res.body)
     if not res then
         local err_msg = 'Failed to parse json response'
         kong.log.err(err_msg)
@@ -47,7 +46,7 @@ local function get_issuer_keys(well_known_endpoint)
         return nil, err
     end
 
-    local res, err = get_request(res['jwks_uri'])
+    res, err = get_request(res['jwks_uri'])
     if err then
         return nil, err
     end
@@ -55,7 +54,7 @@ local function get_issuer_keys(well_known_endpoint)
     local keys = {}
     for i, key in ipairs(res['keys']) do
         keys[i] = string.gsub(
-            convert.convert_kc_key(key), 
+            convert.convert_kc_key(key),
             "[\r\n]+", ""
         )
     end

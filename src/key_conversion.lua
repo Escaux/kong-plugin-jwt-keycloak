@@ -35,7 +35,7 @@ local function encode_sequence(array, of)
     return string.char(0x30) .. encode_length(#encoded_array) .. encoded_array
 end
 
-local function der2pem(data, typ)
+local function der2pem(data)
     data = encode_base64url(data)
     return data:gsub(wrap, '%0\n', (#data - 1) / 64)
 end
@@ -75,7 +75,7 @@ local function openidc_pem_from_rsa_n_and_e(n, e)
         .. "\5\0" -- ASN.1 NULL of length 0
         }),
         encode_bit_string(encoded_key)
-        }), "PUBLIC KEY"
+        })
     )
 
     return pem

@@ -370,13 +370,11 @@ local function do_authentication(conf)
   end
 
   -- Decode token to find out who the consumer is
-  local jwt, err = jwt_decoder:new(token)
+  local jwt
+  jwt, err = jwt_decoder:new(token)
   if err then
     return false, { status = 401, message = "Bad token; " .. tostring(err) }
   end
-
-  local claims = jwt.claims
-  local header = jwt.header
 
   -- Verify that the issuer is allowed
   if not validate_issuer(conf.allowed_iss, jwt.claims) then
@@ -406,7 +404,8 @@ local function do_authentication(conf)
 
   -- Verify the JWT registered claims
   if conf.maximum_expiration ~= nil and conf.maximum_expiration > 0 then
-    local ok, errors = jwt:check_maximum_expiration(conf.maximum_expiration)
+    local ok
+    ok, errors = jwt:check_maximum_expiration(conf.maximum_expiration)
     if not ok then
       return false, { status = 403, message = "Token claims invalid: " .. custom_helper_table_to_string(errors) }
     end
@@ -414,14 +413,16 @@ local function do_authentication(conf)
 
   -- Match consumer
   if conf.consumer_match then
-    local ok, err = custom_match_consumer(conf, jwt)
+    local ok
+    ok, err = custom_match_consumer(conf, jwt)
     if not ok then
       return ok, err
     end
   end
 
   -- Verify roles or scopes
-  local ok, err = validate_scope(conf.scope, jwt.claims)
+  local ok
+  ok, err = validate_scope(conf.scope, jwt.claims)
 
   if ok then
     ok, err = validate_realm_roles(conf.realm_roles, jwt.claims)
@@ -461,7 +462,8 @@ function JwtKeycloakHandler:access(conf)
     if conf.anonymous then
       -- get anonymous user
       local consumer_cache_key = kong.db.consumers:cache_key(conf.anonymous)
-      local consumer, err      = kong.cache:get(consumer_cache_key, nil,
+      local consumer
+      consumer, err      = kong.cache:get(consumer_cache_key, nil,
                                                 kong.client.load_consumer,
                                                 conf.anonymous, true)
       if err then
