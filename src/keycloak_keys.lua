@@ -2,11 +2,7 @@ local http = require("resty.http")
 local cjson_safe = require "cjson.safe"
 local convert = require "kong.plugins.jwt-keycloak.key_conversion"
 
-local function get_request(url)
-    -- Can't instanciate this in the module scope because the `require` can't be done at any time:
-    -- https://github.com/Kong/kong/issues/3271
-    local httpc = http.new()
-
+local function get_request(httpc, url)
     kong.log.debug('Making outgoing request to ' .. url)
     local res, err = httpc:request_uri(url, {
         method = "GET",
@@ -41,13 +37,19 @@ local function get_wellknown_endpoint(well_known_template, issuer)
 end
 
 local function get_issuer_keys(well_known_endpoint)
-    local res, err = get_request(well_known_endpoint)
+    -- Can't instanciate this in the module scope because the `require` can't be done at any time:
+    -- https://github.com/Kong/kong/issues/3271
+    local httpc = http.new()
+
+    local res, err = get_request(httpc, well_known_endpoint)
     if err then
+        httpc:close()
         return nil, err
     end
 
-    res, err = get_request(res['jwks_uri'])
+    res, err = get_request(httpc, res['jwks_uri'])
     if err then
+        httpc:close()
         return nil, err
     end
 
@@ -58,6 +60,8 @@ local function get_issuer_keys(well_known_endpoint)
             "[\r\n]+", ""
         )
     end
+
+    httpc:close()
     return keys, nil
 end
 
