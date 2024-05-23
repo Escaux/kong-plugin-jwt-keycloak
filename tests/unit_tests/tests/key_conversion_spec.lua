@@ -7,7 +7,7 @@
 
 -- describe("Keycloak key conversion", function()
 --   it("should convert the jwk to pem correctly", function()
---     local issuer = "http://localhost:8080/auth/realms/master"
+--     local issuer = "http://keycloak:8080/auth/realms/master"
 
 --     res1, err1 = get_issuer_keys(get_wellknown_endpoint(well_known_template, issuer))
 --     res2, err2 = get_request(issuer, "http")
@@ -17,12 +17,12 @@
 
 --   it("should fail on invalid issuer", function()
 
---     local issuer = "http://localhost:8080/auth/realms/does_not_exist"
+--     local issuer = "http://keycloak:8080/auth/realms/does_not_exist"
 
 --     res1, err1 = get_issuer_keys(get_wellknown_endpoint(well_known_template, issuer))
 
 --     assert.same(nil, res1)
---     assert.same('Failed calling url http://localhost:8080/auth/realms/does_not_exist/.well-known/openid-configuration response status 404', err1)
+--     assert.same('Failed calling url http://keycloak:8080/auth/realms/does_not_exist/.well-known/openid-configuration response status 404', err1)
 --   end)
 
 --   it("should fail on bad issuer", function()

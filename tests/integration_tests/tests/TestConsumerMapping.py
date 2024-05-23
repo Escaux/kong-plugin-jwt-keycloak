@@ -8,7 +8,7 @@ class TestConsumerMapping(unittest.TestCase):
     # Test if plugin sends header "x-consumer-id" to the upstream service
     # 
     @create_api({
-        'allowed_iss': ['http://localhost:8080/auth/realms/master'],
+        'allowed_iss': ['http://keycloak:8080/auth/realms/master'],
         'consumer_match': True
     })
     @authenticate(create_consumer=True)
@@ -23,7 +23,7 @@ class TestConsumerMapping(unittest.TestCase):
     # Test if plugin sends header "x-consumer-custom-id" to the upstream service
     # which needs to contain the same value like we have kong configured ...
     @create_api({
-        'allowed_iss': ['http://localhost:8080/auth/realms/master'],
+        'allowed_iss': ['http://keycloak:8080/auth/realms/master'],
         'consumer_match': True,
         'consumer_match_claim_custom_id': True
     })
@@ -42,7 +42,7 @@ class TestConsumerMapping(unittest.TestCase):
     # "preferred_username"
     #
     @create_api({
-        'allowed_iss': ['http://localhost:8080/auth/realms/master'],
+        'allowed_iss': ['http://keycloak:8080/auth/realms/master'],
         'consumer_match': True,
         'consumer_match_claim': 'preferred_username',
         'consumer_match_ignore_not_found': True

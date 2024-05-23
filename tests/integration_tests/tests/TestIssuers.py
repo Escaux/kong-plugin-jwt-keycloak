@@ -4,7 +4,7 @@ from tests.utils import *
 class TestIssuers(unittest.TestCase):
 
     @create_api({
-        'allowed_iss': ['http://localhost:8080/auth/realms/master']
+        'allowed_iss': ['http://keycloak:8080/auth/realms/master']
     })
     @authenticate()
     @call_api()
@@ -13,8 +13,8 @@ class TestIssuers(unittest.TestCase):
 
     @create_api({
         'allowed_iss': [
-            'http://localhost:8080/auth/realms/not_found',
-            'http://localhost:8080/auth/realms/master'
+            'http://keycloak:8080/auth/realms/not_found',
+            'http://keycloak:8080/auth/realms/master'
         ]
     })
     @authenticate()
@@ -24,7 +24,7 @@ class TestIssuers(unittest.TestCase):
 
     @create_api({
         'allowed_iss': [
-            'http://localhost:8080/auth/realms/not_found'
+            'http://keycloak:8080/auth/realms/not_found'
         ]
     })
     @authenticate()
@@ -35,7 +35,7 @@ class TestIssuers(unittest.TestCase):
 
     @create_api({
         'allowed_iss': [
-            'http://localhost:8080/auth/realms/.*'
+            'http://keycloak:8080/auth/realms/.*'
         ]
     })
     @authenticate()

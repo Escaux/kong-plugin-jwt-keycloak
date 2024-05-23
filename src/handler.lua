@@ -14,6 +14,10 @@ local validate_roles = require("kong.plugins.jwt-keycloak.validators.roles").val
 local validate_realm_roles = require("kong.plugins.jwt-keycloak.validators.roles").validate_realm_roles
 local validate_client_roles = require("kong.plugins.jwt-keycloak.validators.roles").validate_client_roles
 
+local exporter = require("kong.plugins.prometheus.exporter")
+local metrics = {}
+local prometheus
+
 local re_gmatch = ngx.re.gmatch
 
 local priority_env_var = "JWT_KEYCLOAK_PRIORITY"
@@ -29,6 +33,79 @@ local JwtKeycloakHandler = {
   VERSION = kong_meta.version,
   PRIORITY = priority,
 }
+
+local function exit(status, message, headers) -- sig matches kong.response.exit
+  kong.log.info('Exit with status ' .. status)
+  error({
+    _KONG_JWT_KEYCLOAK_EXIT = true;
+    smh = {status, message, headers};
+  })
+end
+
+local function decorate_handler(func)
+  local function wrapper(...)
+    local r = {pcall(func, ...)}
+    local success = r[1]
+    table.remove(r, 1)
+
+
+    -- we can't use kong.response.exit in the handler because it interrupts
+    -- processing and we would not have been able to update the metrics.
+    -- so instead we use pcall/error and do the error handling and exit in here
+    if not success then
+      -- pcall failed -> either the error is:
+      -- 1. an exit() (which sets _KONG_JWT_KEYCLOAK_EXIT)
+      --    --> we update the metric then call kong.response.exit
+      -- 2. an actual error
+      --    --> we update the metric then propagate the error
+
+      -- we ran pcall so `r[1]` is `e` in error(e), which is typically (but not
+      -- necessarily) a table
+      local errmsg = r[1]
+
+      local status = 500
+      local message
+      local headers
+      if type(errmsg) == 'table' and errmsg['_KONG_JWT_KEYCLOAK_EXIT'] then
+        -- we get the status so we can update the metric accordingly
+        status = errmsg.smh[1]
+        message = errmsg.smh[2] or nil
+        headers = errmsg.smh[3] or nil
+      end
+      metrics.requests:inc(1, {status})
+      if type(errmsg) == 'table' and errmsg['_KONG_JWT_KEYCLOAK_EXIT'] then
+        return kong.response.exit(status, message, headers)
+      else
+        -- propagate
+        return error(errmsg)
+      end
+    else
+      metrics.requests:inc(1, {200})
+      return unpack(r)
+    end
+  end
+  return wrapper
+end
+
+local function decorate_latency(name, func)
+  local function wrapper(...)
+    local start = socket.gettime()
+
+    local r = {pcall(func, ...)}
+    local success = r[1]
+    table.remove(r, 1)
+
+    metrics.latency:observe(socket.gettime() - start, {name})
+
+    if not success then
+      -- we logged the metric, propagate the error
+      error(r[1])
+    else
+      return unpack(r)
+    end
+  end
+  return wrapper
+end
 
 -------------------------------------------------------------------------------
 -- custom helper function of the extended plugin "jwt-keycloak"
@@ -65,7 +142,7 @@ end
 -------------------------------------------------------------------------------
 local function custom_helper_issuer_get_keys(well_known_endpoint, cafile)
   kong.log.debug('Getting public keys from token issuer')
-  local keys, err = keycloak_keys.get_issuer_keys(well_known_endpoint, cafile)
+  local keys, err = decorate_latency('get_issuer_keys', keycloak_keys.get_issuer_keys)(well_known_endpoint, cafile)
   if err then
       return nil, err
   end
@@ -90,10 +167,11 @@ end
 -- issued by this instance. The URL from inside the token from the "iss"
 -- information is taken to connect with the token issuer instance.
 -------------------------------------------------------------------------------
-local function custom_validate_token_signature(conf, jwt, second_call)
+local custom_validate_token_signature
+custom_validate_token_signature = decorate_latency('custom_validate_token_signature', function (conf, jwt, second_call)
   local issuer_cache_key = 'issuer_keys_' .. jwt.claims.iss
 
-  local well_known_endpoint = keycloak_keys.get_wellknown_endpoint(conf.well_known_template, jwt.claims.iss)
+  local well_known_endpoint = decorate_latency('get_wellknown_endpoint', keycloak_keys.get_wellknown_endpoint)(conf.well_known_template, jwt.claims.iss)
   -- Retrieve public keys
   local public_keys, err = kong.cache:get(issuer_cache_key, nil, custom_helper_issuer_get_keys, well_known_endpoint, conf.cafile)
 
@@ -101,7 +179,7 @@ local function custom_validate_token_signature(conf, jwt, second_call)
       if err then
           kong.log.err(err)
       end
-      return kong.response.exit(403, { message = "Unable to get public key for issuer" })
+      return exit(403, { message = "Unable to get public key for issuer" })
   end
 
   -- Verify signatures
@@ -123,8 +201,8 @@ local function custom_validate_token_signature(conf, jwt, second_call)
       return custom_validate_token_signature(conf, jwt, true)
   end
 
-  return kong.response.exit(401, { message = "Invalid token signature" })
-end
+  return exit(401, { message = "Invalid token signature" })
+end)
 
 -------------------------------------------------------------------------------
 -- custom keycloak specific extension for the plugin "jwt-keycloak"
@@ -154,6 +232,14 @@ end
 -- register at startup for events to be able to receive invalidate request needs
 function JwtKeycloakHandler:init_worker()
   kong.worker_events.register(invalidate_customer, "crud", "consumers")
+  prometheus = exporter.get_prometheus()
+  kong.log.debug("Registering prometheus metrics")
+  metrics.latency = prometheus:histogram("plugin_jwt_keycloak_duration_seconds", "Total time spent in the request handler (i.e. plugin overhead)", {"method"}, {0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1})
+  metrics.requests = prometheus:counter("plugin_jwt_keycloak_requests", "Total requests per status", {"status"})
+
+  if metrics.latency == nil or metrics.requests == nil then
+    kong.log.err("Failed to register prometheus metrics")
+  end
 end
 
 
@@ -319,7 +405,7 @@ local function custom_load_consumer_by_custom_id(custom_id)
   return result
 end
 
-local function custom_match_consumer(conf, jwt)
+local custom_match_consumer = decorate_latency('custom_match_consumer', function (conf, jwt)
   local consumer, err
   local consumer_id = jwt.claims[conf.consumer_match_claim]
 
@@ -345,17 +431,17 @@ local function custom_match_consumer(conf, jwt)
   end
 
   return true
-end
+end)
 
 -------------------------------------------------------------------------------
 -- Now again module names which also exist in original "jwt" kong OSS plugin
 -------------------------------------------------------------------------------
 
-local function do_authentication(conf)
+local do_authentication = decorate_latency('do_authentication', function (conf)
   local token, err = retrieve_tokens(conf)
   if err then
     kong.log.err(err)
-    return kong.response.exit(500, { message = "An unexpected error occurred" })
+    return exit(500, { message = "An unexpected error occurred" })
   end
 
   local token_type = type(token)
@@ -442,10 +528,9 @@ local function do_authentication(conf)
   end
 
   return false, { status = 403, message = "Access token does not have the required scope/role: " .. err }
-end
+end)
 
-
-function JwtKeycloakHandler:access(conf)
+local _access = decorate_handler(decorate_latency("access", function (conf)
   -- check if preflight request and whether it should be authenticated
   if not conf.run_on_preflight and kong.request.get_method() == "OPTIONS" then
     return
@@ -468,15 +553,19 @@ function JwtKeycloakHandler:access(conf)
                                                 conf.anonymous, true)
       if err then
         kong.log.err(err)
-        return kong.response.exit(500, { message = "An unexpected error occurred during authentication" })
+        return exit(500, { message = "An unexpected error occurred during authentication" })
       end
 
       set_consumer(consumer)
 
     else
-      return kong.response.exit(err.status, err.errors or { message = err.message })
+      return exit(err.status, err.errors or { message = err.message })
     end
   end
+end))
+
+function JwtKeycloakHandler:access(conf)
+  return _access(conf)
 end
 
 

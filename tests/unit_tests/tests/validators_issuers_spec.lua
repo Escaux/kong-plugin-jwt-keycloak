@@ -37,7 +37,7 @@ describe("Validator", function()
 
         it("handle invalid issuer", function()
             local valid, err = validate_issuer(
-                {"http://localhost:8080/auth/realms/master"}, 
+                {"http://keycloak:8080/auth/realms/master"}, 
                 test_claims
             )
             assert.same(nil, valid)
@@ -47,7 +47,7 @@ describe("Validator", function()
         it("handle multiple valid issuers", function()
             local valid, err = validate_issuer({
                 "http://keycloak-headless/auth/realms/master",
-                "http://localhost:8080/auth/realms/master"
+                "http://keycloak:8080/auth/realms/master"
             }, 
                 test_claims
             )

@@ -87,7 +87,7 @@ def create_api(config, expected_response=CREATED):
             api_name = "test" + str(random.randint(1, 1000000))
             r = requests.post(KONG_ADMIN + "/services", data={
                 "name": api_name,
-                "url": "http://localhost:8093/anything"
+                "url": "http://httpbin/anything"
             })
             assert r.status_code == CREATED
             r = requests.post(KONG_ADMIN + "/services/" + api_name + "/routes", data={
@@ -117,7 +117,7 @@ def create_api(config, expected_response=CREATED):
     return real_decorator
 
 
-def call_api(token=None, method='get', params=None, endpoint=None, authentication_type=None):
+def call_api(token=None, method='get', params=None, endpoint=None, authentication_type=None, parse_json=True):
     def real_decorator(func):
         def wrapper(*args, **kwargs):
             authentication_type_json = json.dumps(authentication_type)
@@ -155,7 +155,7 @@ def call_api(token=None, method='get', params=None, endpoint=None, authenticatio
             # print(logging_hook(r))
             # print("--------------------Debugging End----------------------")
             try:
-                result = func(*args, r.status_code, r.json())
+                result = func(*args, r.status_code, r.json() if parse_json else r.text)
             except ValueError: # When response body is empty / no json, then return None
                 result = func(*args, r.status_code, None)
             return result

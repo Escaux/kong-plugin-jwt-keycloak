@@ -14,7 +14,7 @@ class TestKeyRotation(unittest.TestCase):
 
     def setUp(self):
         @create_api({
-            'allowed_iss': ['http://localhost:8080/auth/realms/master'],
+            'allowed_iss': ['http://keycloak:8080/auth/realms/master'],
             'iss_key_grace_period': 1
         })
         def makeApi(**kwargs):
