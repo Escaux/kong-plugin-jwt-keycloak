@@ -21,12 +21,20 @@ RUN luarocks make && luarocks pack kong-plugin-jwt-keycloak ${PLUGIN_VERSION}
 ## Create Image
 FROM docker.io/kong:${KONG_VERSION}
 
-ENV KONG_PLUGINS="bundled,jwt-keycloak"
-
-COPY --from=builder /tmp/*.rock /tmp/
+ENV KONG_PLUGINS="bundled,jwt-keycloak,prometheus"
 
 # Root needed for installing plugin
 USER root
 
+RUN apt-get update && apt-get install curl
+
+COPY --from=builder /tmp/*.rock /tmp/
+
+COPY nginx-metrics.conf /
+RUN echo "nginx_http_include = /nginx-metrics.conf" >> /etc/kong/kong.conf
+
 ARG PLUGIN_VERSION
-RUN luarocks install /tmp/kong-plugin-jwt-keycloak-${PLUGIN_VERSION}.all.rock
+RUN luarocks install /tmp/kong-plugin-jwt-keycloak-${PLUGIN_VERSION}.all.rock \
+    && luarocks install kong-prometheus-plugin
+
+CMD ["kong", "start", "--vv"]
