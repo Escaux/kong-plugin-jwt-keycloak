@@ -5,7 +5,7 @@ IMAGE?=kong-plugin-jwt-keycloak
 KONG_VERSION?=3.6.1
 FULL_IMAGE_NAME:=${REPOSITORY}/${IMAGE}:${KONG_VERSION}
 
-PLUGIN_VERSION?=1.5.0-1
+PLUGIN_VERSION?=1.6.0-1
 
 # Tests version separated with spaces
 TEST_VERSIONS?=2.8.1 3.0.0 3.1.0 3.2.2 3.3.0 3.5.0
